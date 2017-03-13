@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
-        "fmt"
-        "os/exec"
+    "fmt"
+    "os"
+    "os/exec"
 	"strconv"
 )
 
 const DRV2605_BUS=2
+const DRV2605_DEV="/dev/i2c-2" //+ string(DRV2605_BUS)
 const DRV2605_ADDR=0x5A
 
 const DRV2605_REG_STATUS=0x00
@@ -52,6 +54,8 @@ const DRV2605_REG_CONTROL4=0x1E
 const DRV2605_REG_VBAT=0x21
 const DRV2605_REG_LRARESON=0x22
 
+var devFile *os.File = nil;
+
 func int2hex(val int) string {
 	return "0x" + strconv.FormatInt(int64(val), 16)
 }
@@ -67,18 +71,16 @@ func hex2int(val []byte) int {
 	}
 	ret, err := strconv.ParseInt(string(num), 16, 32)
 	if err != nil {
-		fmt.Printf("%s", err)
-	}	
+		fmt.Printf("%s\n", err)
+	}
 	return int(ret)
 }
 
 func writeRegister8(reg int, val int) {
-	cmd := exec.Command("i2cset", "-y", int2hex(DRV2605_BUS), int2hex(DRV2605_ADDR), int2hex(reg), int2hex(val))
-	//fmt.Println(cmd.Args)
-	_, err := cmd.Output()
-	if err != nil {
-		fmt.Printf("%s", err)
-	} 
+    buf := []byte{ DRV2605_ADDR, byte(reg), byte(val) }
+    if _, err :=  devFile.Write(buf); err != nil {
+		fmt.Printf("%s\n", err)
+	}
 }
 
 func readRegister8(reg int) int {
@@ -86,7 +88,7 @@ func readRegister8(reg int) int {
 	//fmt.Println(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
-		fmt.Printf("%s", err)
+		fmt.Printf("%s\n", err)
 	}
 	//fmt.Println(out[:])
 	//fmt.Println(hex2int(out))
@@ -94,22 +96,29 @@ func readRegister8(reg int) int {
 }
 
 func drv2605Init() {
+    var err error
+    devFile,err = os.OpenFile(DRV2605_DEV, os.O_RDWR, 0)
+    if err != nil {
+		fmt.Printf("%s\n", err)
+        os.Exit(1)
+	}
+
 	writeRegister8(DRV2605_REG_MODE, 0x00) // out of standby
-	  
+
 	writeRegister8(DRV2605_REG_RTPIN, 0x00); // no real-time-playback
-	  
+
 	writeRegister8(DRV2605_REG_WAVESEQ1, 1); // strong click
 	writeRegister8(DRV2605_REG_WAVESEQ2, 0);
-	  
+
 	writeRegister8(DRV2605_REG_OVERDRIVE, 0); // no overdrive
-	  
+
 	writeRegister8(DRV2605_REG_SUSTAINPOS, 0);
 	writeRegister8(DRV2605_REG_SUSTAINNEG, 0);
 	writeRegister8(DRV2605_REG_BREAK, 0);
 	writeRegister8(DRV2605_REG_AUDIOMAX, 0x64);
-	  
+
 	// ERM open loop
-	  
+
 	// turn off N_ERM_LRA
 	writeRegister8(DRV2605_REG_FEEDBACK, readRegister8(DRV2605_REG_FEEDBACK) & 0x7F);
 	// turn on ERM_OPEN_LOOP
@@ -139,11 +148,11 @@ func main() {
 
 	drv2605Init()
 	drv2605SelectLibrary(1)
-	
+
         // I2C trigger by sending 'go' command
         // default, internal trigger when sending GO command
         drv2605SetMode(DRV2605_MODE_INTTRIG)
-	
+
 	drv2605SetWaveform(0, *effect)
 	drv2605SetWaveform(1, 0)
 	drv2605Go()
