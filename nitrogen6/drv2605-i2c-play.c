@@ -56,47 +56,50 @@ const int DRV2605_REG_LRARESON=0x22;
 
 int devFile = 0;
 
-void writeRegister8(char reg, char val) {
-      /* Using I2C Write, equivalent of
-     i2c_smbus_write_word_data(file, reg, 0x6543) */
-    char buf[2];
-    buf[0] = reg;
-    buf[1] = val;
-    if (write(devFile, buf, 2) != 2) {
-        perror("i2c write failed");
-    }
+void writeRegister8(char reg, char val)
+{
+	/* Using I2C Write, equivalent of
+	i2c_smbus_write_word_data(file, reg, 0x6543) */
+	char buf[2];
+	buf[0] = reg;
+	buf[1] = val;
+	if (write(devFile, buf, 2) != 2) {
+		perror("i2c write failed");
+	}
 }
 
-char readRegister8(char reg) {
-    char ret = 0;
-    /* Using I2C Read, equivalent of i2c_smbus_read_byte(file) */
-    if (read(devFile, &ret, 1) != 1) {
-        perror("i2c read failed");
-        ret = 0;
-    }
-    return ret;
+char readRegister8(char reg)
+{
+	char ret = 0;
+	/* Using I2C Read, equivalent of i2c_smbus_read_byte(file) */
+	if (read(devFile, &ret, 1) != 1) {
+		perror("i2c read failed");
+		ret = 0;
+	}
+	return ret;
 }
 
-void drv2605Init() {
-    devFile = open(DRV2605_DEV, O_RDWR);
-    if (devFile < 0) {
-        perror("failed to open " DRV2605_DEV);
-        exit(1);
-    }
+void drv2605Init()
+{
+	devFile = open(DRV2605_DEV, O_RDWR);
+	if (devFile < 0) {
+		perror("failed to open " DRV2605_DEV);
+		exit(1);
+	}
 
-    if (ioctl(devFile, I2C_SLAVE, DRV2605_ADDR) < 0) {
-        perror("failed to select device");
-        exit(2);
-    }
+	if (ioctl(devFile, I2C_SLAVE, DRV2605_ADDR) < 0) {
+		perror("failed to select device");
+		exit(2);
+	}
 
-	writeRegister8(DRV2605_REG_MODE, 0x00); // out of standby
+	writeRegister8(DRV2605_REG_MODE, 0x00);		  // out of standby
 
-	writeRegister8(DRV2605_REG_RTPIN, 0x00); // no real-time-playback
+	writeRegister8(DRV2605_REG_RTPIN, 0x00);	  // no real-time-playback
 
-	writeRegister8(DRV2605_REG_WAVESEQ1, 1); // strong click
+	writeRegister8(DRV2605_REG_WAVESEQ1, 1);	  // strong click
 	writeRegister8(DRV2605_REG_WAVESEQ2, 0);
 
-	writeRegister8(DRV2605_REG_OVERDRIVE, 0); // no overdrive
+	writeRegister8(DRV2605_REG_OVERDRIVE, 0);	  // no overdrive
 
 	writeRegister8(DRV2605_REG_SUSTAINPOS, 0);
 	writeRegister8(DRV2605_REG_SUSTAINNEG, 0);
@@ -111,37 +114,42 @@ void drv2605Init() {
 	writeRegister8(DRV2605_REG_CONTROL3, readRegister8(DRV2605_REG_CONTROL3) | 0x20);
 }
 
-void drv2605SelectLibrary(int lib) {
+void drv2605SelectLibrary(int lib)
+{
 	writeRegister8(DRV2605_REG_LIBRARY, lib);
 }
 
-void drv2605SetMode(int mode) {
+void drv2605SetMode(int mode)
+{
 	writeRegister8(DRV2605_REG_MODE, mode);
 }
 
-void drv2605SetWaveform(int slot, int w) {
+void drv2605SetWaveform(int slot, int w)
+{
 	writeRegister8(DRV2605_REG_WAVESEQ1+slot, w);
 }
 
-void drv2605Go() {
+void drv2605Go()
+{
 	writeRegister8(DRV2605_REG_GO, 1);
 }
 
-int main(int argc, char** argv) {
-    int effect = 1;
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s effect-number\n", argv[0]);
-        return -1;
-    }
-    effect = atoi(argv[1]);
+int main(int argc, char** argv)
+{
+	int effect = 1;
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s effect-number\n", argv[0]);
+		return -1;
+	}
+	effect = atoi(argv[1]);
 	printf("playing effect %d\n", effect);
 
 	drv2605Init();
 	drv2605SelectLibrary(1);
 
-    // I2C trigger by sending 'go' command
-    // default, internal trigger when sending GO command
-    drv2605SetMode(DRV2605_MODE_INTTRIG);
+	// I2C trigger by sending 'go' command
+	// default, internal trigger when sending GO command
+	drv2605SetMode(DRV2605_MODE_INTTRIG);
 
 	drv2605SetWaveform(0, effect);
 	drv2605SetWaveform(1, 0);
